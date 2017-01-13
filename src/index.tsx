@@ -1,165 +1,19 @@
-// import * as React from 'react';
-// import * as ReactDOM from 'react-dom';
-
-// interface Question {
-//   text: string,
-//   answer: string | null
-// }
-
-// type QuestionList = {
-//   previous: Question[],
-//   current: Question,
-//   others: Question[],
-// };
-
-// interface Questionaire {
-//   questions: QuestionList
-// }
-
-// const tuple: [string, number] = ['hello', 123];
-
-// const questionaire: Questionaire = {
-//   questions: {
-//     previous: [
-//       {
-//         text: 'how are you',
-//         answer: 'fine',
-//       }
-//     ],
-//     current: {
-//       text: 'how old are you',
-//       answer: null,
-//     },
-//     others: [] as Question[],
-//   }
-// }
-
-// interface ApiUser {
-//   date: string // 2017-01-06T17:01:31.870Z
-// }
-
-// interface User {
-//   date: Date,
-// }
-
-// function request(): Questionaire {
-//   const json = '{}';
-//   return JSON.parse(json);
-// }
-
-// type Model = Guest | User | Admin | SuperAdmin;
-
-// interface Hello {
-//   text: number | string, // '134'
-// }
-
-// interface Guest {
-//   kind: 'Guest',
-//   name: string,
-// }
-
-// interface User {
-//   kind: 'User',
-//   name: string,
-//   cart: [string],
-//   purchases: [string],
-// }
-
-// interface Admin {
-//   kind: 'Admin',
-//   name: string,
-//   curatedProducts: [string],
-// }
-
-// interface SuperAdmin {
-//   kind: 'SuperAdmin',
-//   name: string,
-// }
-
-
-// type RemoteData<T> = NotAsked | Loading | Failed | Succeeded<T>
-// interface NotAsked { kind: 'NotAsked' }
-// interface Loading { kind: 'Loading' }
-// interface Failed { kind: 'Failed' }
-// interface Succeeded<T> { kind: 'Succeeded', data: T }
-
-// interface Props {
-//   remoteUser: RemoteData<Model>,
-// }
-
-// function unreachable(x: never): never {
-//   throw 'Unreachable code';
-// }
-
-// function App({ remoteUser }: Props) {
-//   switch (remoteUser.kind) {
-//     case 'NotAsked':
-//     case 'Loading':
-//       return <div>Loading...</div>
-//     case 'Failed':
-//       return <div>Failed</div>
-//     case 'Succeeded':
-//       const user = remoteUser.data;
-//       switch (user.kind) {
-//         case 'Guest':
-//           return (
-//             <div>
-//               {user.name}
-//             </div>
-//           );
-//         case 'User':
-//           return (
-//             <div>
-//               {user.name}
-//               <br />
-//               {user.cart.map(item =>
-//                 <div>{item}</div>
-//               )}
-//             </div>
-//           );
-//         case 'Admin':
-//           return (
-//             <div>
-//               {user.name}
-//               <br />
-//               {user.curatedProducts.map(product =>
-//                 <div>{product}</div>
-//               )}
-//             </div>
-//           );
-//         case 'SuperAdmin':
-//           return (
-//             <div>
-//               {user.name}
-//             </div>
-//           );
-//         default:
-//           return unreachable(user);
-//       }
-//     default:
-//         return unreachable(remoteUser);
-//   }
-// }
-
-// ReactDOM.render(
-//   <App remoteUser={{kind: 'Succeeded', data: { kind: 'Guest', name: '123'}}} />,
-//   document.getElementById('root')
-// );
-
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 
-type PlayerNumber = 0 | 1
+type PlayerNumber = 0 | 1;
 
 type PlayerOne = {
   kind: 'PlayerOne',
   name: string,
-}
+  number: PlayerNumber,
+};
 
 type PlayerTwo = {
   kind: 'PlayerTwo',
   name: string,
-}
+  number: PlayerNumber,
+};
 
 type Player = PlayerOne | PlayerTwo;
 
@@ -201,11 +55,13 @@ type Game = {
 const player1: PlayerOne = {
   kind: 'PlayerOne',
   name: 'Roger',
+  number: 0,
 }
 
 const player2: PlayerTwo = {
   kind: 'PlayerTwo',
   name: 'Sam',
+  number: 1,
 }
 
 const initialScores: PointsData = {
@@ -240,6 +96,12 @@ function addPoint(point: Point): Point {
   }
 }
 
+function randomPlayerNumber(): PlayerNumber {
+  const random = Math.floor(Math.random() * 2);
+  if (random === 1) {return 1};
+  return 0;
+}
+
 function ball(game: Game, ballBy: PlayerNumber): Game {
   const {players} = game;
   const defaults = {
@@ -269,28 +131,89 @@ function ball(game: Game, ballBy: PlayerNumber): Game {
         },
       };
     case 'FortyData':
-      // add some stuff
-      return game;
+      if (ballBy === game.score.player.number) {
+        return {
+          ...defaults,
+          score: {
+            kind: 'Win',
+            player: game.score.player,
+          }
+        }
+      }
+      if (game.score.otherPlayerPoint === 30) {
+        return {
+          ...defaults,
+          score: {
+            kind: 'Deuce',
+          }
+        }
+      }
+      return {
+        ...defaults,
+        score: {
+          ...game.score,
+          otherPlayerPoint: addPoint(game.score.otherPlayerPoint),
+        }
+      };
     case 'Deuce':
-      // add some stuff
-      return game;
+      return {
+        ...defaults,
+        score: {
+          kind: 'Advantage',
+          player: game.players[ballBy],
+        }
+      };
     case 'Advantage':
-      // add some stuff
-      return game;
+      if (ballBy === game.score.player.number) {
+        return {
+          ...defaults,
+          score: {
+            kind: 'Win',
+            player: game.score.player,
+          }
+        }
+      }
+      return {
+        ...defaults,
+        score: {
+          kind: 'Deuce',
+        }
+      };
     case 'Win':
-      // add some stuff
       return game;
     default:
         return unreachable(game.score);
   }
 }
 
-interface Props {
+interface AppProps {
+  initialGame: Game,
+}
+
+interface AppState {
   game: Game,
 }
 
-function App({ game }: Props) {
-  switch (game.score.kind) {
+export class App extends React.Component<AppProps, AppState> {
+
+  constructor(props:AppProps) {
+    super(props);
+    this.state = {
+      game: props.initialGame,
+    }
+  }
+
+  componentDidMount() {
+    setInterval(() => {
+      this.setState({
+        game: ball(game, randomPlayerNumber()),
+      });
+    }
+    , 2000);
+  }
+
+  render() {
+    switch (game.score.kind) {
     case 'PointsData':
       return (
         <div>
@@ -320,9 +243,15 @@ function App({ game }: Props) {
     default:
         return unreachable(game.score);
   }
+  }
 }
 
+setInterval(() => {
+  game = ball(game, randomPlayerNumber());
+}
+, 2000);
+
 ReactDOM.render(
-  <App game={game} />,
+  <App initialGame={game} />,
   document.getElementById('root')
 );
