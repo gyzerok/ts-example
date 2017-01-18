@@ -1,18 +1,14 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 
-type PlayerNumber = 0 | 1;
-
 type PlayerOne = {
   kind: 'PlayerOne',
   name: string,
-  number: PlayerNumber,
 };
 
 type PlayerTwo = {
   kind: 'PlayerTwo',
   name: string,
-  number: PlayerNumber,
 };
 
 type Player = PlayerOne | PlayerTwo;
@@ -49,19 +45,17 @@ type Score =
 type Game = {
   players: [PlayerOne, PlayerTwo],
   score: Score,
-  lastBallBy: PlayerNumber | false,
+  lastBallBy: Player | false,
 }
 
 const player1: PlayerOne = {
   kind: 'PlayerOne',
   name: 'Roger',
-  number: 0,
 }
 
 const player2: PlayerTwo = {
   kind: 'PlayerTwo',
   name: 'Sam',
-  number: 1,
 }
 
 const initialScores: PointsData = {
@@ -76,14 +70,14 @@ let game: Game = {
 }
 
 function unreachable(x: never): never {
-  throw 'Unreachable code';
+  throw 'Unreachable code'
 }
 
-function switchPlayerNumber(number: PlayerNumber): PlayerNumber {
-  switch (number) {
-    case 1: return 0;
-    case 0: return 1;
-    default: return unreachable(number);
+function switchPlayer(player: Player, players: [PlayerOne, PlayerTwo]): Player {
+  switch (player.kind) {
+    case 'PlayerOne': return players[1];
+    case 'PlayerTwo': return players[0];
+    default: return unreachable(player);
   }
 }
 
@@ -91,18 +85,46 @@ function addPoint(point: Point): Point {
   switch (point) {
     case 0: return 15;
     case 15: return 30;
-    case 30: return 30; // wtf?
+    case 30: return 30;
     default: return unreachable(point);
   }
 }
 
-function randomPlayerNumber(): PlayerNumber {
-  const random = Math.floor(Math.random() * 2);
-  if (random === 1) {return 1};
-  return 0;
+function calcPointsData(player: Player, points: PointsData): PointsData {
+  switch (player.kind) {
+    case 'PlayerOne':
+      return {
+        kind: 'PointsData',
+        playerPoints: [addPoint(points.playerPoints[0]), points.playerPoints[1]]
+      };
+    case 'PlayerTwo':
+      return {
+        kind: 'PointsData',
+        playerPoints: [points.playerPoints[0], addPoint(points.playerPoints[1])]
+      };
+    default:
+        return unreachable(player);
+  }
 }
 
-function ball(game: Game, ballBy: PlayerNumber): Game {
+function randomPlayer(players: [PlayerOne, PlayerTwo]): Player {
+  const random = Math.floor(Math.random() * 2);
+  if (random === 1) {return players[1]};
+  return players[0];
+}
+
+function getPlayerPoints(player: Player, points: PointsData): Point {
+  switch (player.kind) {
+    case 'PlayerOne':
+      return points.playerPoints[0];
+    case 'PlayerTwo':
+      return points.playerPoints[1];
+    default:
+        return unreachable(player);
+  }
+}
+
+function ball(game: Game, ballBy: Player): Game {
   const {players} = game;
   const defaults = {
     players,
@@ -110,33 +132,29 @@ function ball(game: Game, ballBy: PlayerNumber): Game {
   };
   switch (game.score.kind) {
     case 'PointsData':
-      const playerGainsForty: boolean = game.score.playerPoints[ballBy] === 30;
+      const playerGainsForty: boolean = getPlayerPoints(ballBy, game.score) === 30;
       if (playerGainsForty) {
         return {
           ...defaults,
           score: {
             kind: 'FortyData',
-            player: game.players[ballBy],
-            otherPlayerPoint: game.score.playerPoints[switchPlayerNumber(ballBy)],
+            player: ballBy,
+            otherPlayerPoint: getPlayerPoints(switchPlayer(ballBy, game.players), game.score),
           }
         }
       }
-      const playerOnePoints = ballBy === 0 ? addPoint(game.score.playerPoints[0]) : game.score.playerPoints[0];
-      const playerTwoPoints = ballBy === 1 ? addPoint(game.score.playerPoints[1]) : game.score.playerPoints[1];
       return {
         ...defaults,
-        score: {
-          ...game.score,
-          playerPoints: [playerOnePoints, playerTwoPoints],
-        },
+        score: calcPointsData(ballBy, game.score),
       };
+
     case 'FortyData':
-      if (ballBy === game.score.player.number) {
+      if (ballBy.kind === game.score.player.kind) {
         return {
           ...defaults,
           score: {
             kind: 'Win',
-            player: game.score.player,
+            player: ballBy,
           }
         }
       }
@@ -155,21 +173,23 @@ function ball(game: Game, ballBy: PlayerNumber): Game {
           otherPlayerPoint: addPoint(game.score.otherPlayerPoint),
         }
       };
+
     case 'Deuce':
       return {
         ...defaults,
         score: {
           kind: 'Advantage',
-          player: game.players[ballBy],
+          player: ballBy,
         }
       };
+
     case 'Advantage':
-      if (ballBy === game.score.player.number) {
+      if (ballBy.kind === game.score.player.kind) {
         return {
           ...defaults,
           score: {
             kind: 'Win',
-            player: game.score.player,
+            player: ballBy,
           }
         }
       }
@@ -179,6 +199,7 @@ function ball(game: Game, ballBy: PlayerNumber): Game {
           kind: 'Deuce',
         }
       };
+
     case 'Win':
       return game;
     default:
@@ -204,15 +225,17 @@ export class App extends React.Component<AppProps, AppState> {
   }
 
   componentDidMount() {
-    setInterval(() => {
-      this.setState({
-        game: ball(game, randomPlayerNumber()),
-      });
-    }
-    , 2000);
+    setInterval(this.calcNewGame, 2000);
+  }
+
+  calcNewGame = () => {
+    this.setState({
+      game: ball(this.state.game, randomPlayer(this.state.game.players)),
+    });
   }
 
   render() {
+    const {game} = this.state;
     switch (game.score.kind) {
     case 'PointsData':
       return (
@@ -230,7 +253,7 @@ export class App extends React.Component<AppProps, AppState> {
       );
     case 'Deuce':
       return (
-        <div>Both players {game.players.join(' and ')} has 40</div>
+        <div>Both players {game.players.map((player: Player) => player.name).join(' and ')} has 40</div>
       );
     case 'Advantage':
       return (
@@ -245,11 +268,6 @@ export class App extends React.Component<AppProps, AppState> {
   }
   }
 }
-
-setInterval(() => {
-  game = ball(game, randomPlayerNumber());
-}
-, 2000);
 
 ReactDOM.render(
   <App initialGame={game} />,
